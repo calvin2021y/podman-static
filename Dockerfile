@@ -1,10 +1,10 @@
 # Download gpg
-FROM alpine:3.15 AS gpg
+FROM alpine:edge AS gpg
 RUN apk add --no-cache gnupg
 
 
 # runc
-FROM golang:1.18-alpine3.15 AS runc
+FROM golang:alpine AS runc
 ARG RUNC_VERSION=v1.1.4
 RUN set -eux; \
 	apk add --no-cache --virtual .build-deps gcc musl-dev libseccomp-dev libseccomp-static make git bash; \
@@ -18,7 +18,7 @@ RUN set -eux; \
 
 
 # podman build base
-FROM golang:1.18-alpine3.15 AS podmanbuildbase
+FROM golang:alpine AS podmanbuildbase
 RUN apk add --update --no-cache git make gcc pkgconf musl-dev \
 	btrfs-progs btrfs-progs-dev libassuan-dev lvm2-dev device-mapper \
 	glib-static libc-dev gpgme-dev protobuf-dev protobuf-c-dev \
@@ -121,7 +121,7 @@ RUN set -ex; \
 
 
 # Build podman base image
-FROM alpine:3.15 AS podmanbase
+FROM alpine:edge AS podmanbase
 LABEL maintainer="Max Goltzsche <max.goltzsche@gmail.com>"
 RUN apk add --no-cache tzdata ca-certificates
 COPY --from=conmon /conmon/bin/conmon /usr/local/lib/podman/conmon
@@ -154,7 +154,7 @@ COPY --from=runc   /usr/local/bin/runc   /usr/local/bin/runc
 # Download crun
 # (switched keyserver from sks to ubuntu since sks is offline now and gpg refuses to import keys from keys.openpgp.org because it does not provide a user ID with the key.)
 FROM gpg AS crun
-ARG CRUN_VERSION=1.6
+ARG CRUN_VERSION=1.7
 RUN set -ex; \
 	wget -O /usr/local/bin/crun https://github.com/containers/crun/releases/download/$CRUN_VERSION/crun-${CRUN_VERSION}-linux-amd64-disable-systemd; \
 	wget -O /tmp/crun.asc https://github.com/containers/crun/releases/download/$CRUN_VERSION/crun-${CRUN_VERSION}-linux-amd64-disable-systemd.asc; \
@@ -170,7 +170,7 @@ COPY conf/crun-containers.conf /etc/containers/containers.conf
 
 # Build podman image with rootless binaries and CNI plugins
 FROM rootlesspodmanrunc AS podmanall
-RUN apk add --no-cache iptables ip6tables
+RUN apk add --no-cache iptables ip6tables bash libarchive-tools curl vim jq bind-tools util-linux-misc file findmnt libcap
 COPY --from=slirp4netns /slirp4netns/slirp4netns /usr/local/bin/slirp4netns
 COPY --from=cniplugins /usr/local/lib/cni /usr/local/lib/cni
 COPY conf/cni /etc/cni
